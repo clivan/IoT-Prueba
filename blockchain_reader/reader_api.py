@@ -1,38 +1,42 @@
 from fastapi import FastAPI
-import json
 import hashlib
+import json
 import os
+import uvicorn
+
+CHAIN_FILE = "/data/chain.json"
 
 app = FastAPI()
-BLOCKCHAIN_FILE = "/data/blockchain.json"
 
 def load_chain():
-    if not os.path.exists(BLOCKCHAIN_FILE):
+    if not os.path.exists(CHAIN_FILE):
         return []
-    with open(BLOCKCHAIN_FILE, "r") as f:
+    with open(CHAIN_FILE, "r") as f:
         return json.load(f)
 
-def verify_chain(chain):
-    for i in range(1, len(chain)):
-        prev_hash = chain[i-1]["hash"]
-        block_copy = chain[i].copy()
-        block_hash = block_copy.pop("hash")
-
-        recalculated = hashlib.sha256(
-            json.dumps(block_copy, sort_keys=True).encode()
-        ).hexdigest()
-
-        if block_copy["previous_hash"] != prev_hash:
-            return False
-        if recalculated != block_hash:
-            return False
-    return True
-
 @app.get("/blocks")
-def blocks():
+def get_blocks():
     return load_chain()
 
 @app.get("/verify")
-def verify():
+def verify_chain():
     chain = load_chain()
-    return {"valid": verify_chain(chain)}
+
+    for i in range(1, len(chain)):
+        prev = chain[i-1]
+        curr = chain[i]
+
+        recalculated_hash = hashlib.sha256(
+            f"{curr['index']}{curr['timestamp']}{curr['data']}{curr['previous_hash']}".encode()
+        ).hexdigest()
+
+        if curr["previous_hash"] != prev["hash"]:
+            return {"valid": False, "error": "Broken previous hash"}
+
+        if curr["hash"] != recalculated_hash:
+            return {"valid": False, "error": "Invalid hash"}
+
+    return {"valid": True}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

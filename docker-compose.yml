@@ -1,0 +1,25 @@
+services:
+
+  mosquitto:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+
+  blockchain_writer:
+    build: ./blockchain_writer
+    volumes:
+      - blockchain_data:/data
+    depends_on:
+      - mosquitto
+
+  blockchain_reader:
+    build: ./blockchain_reader
+    ports:
+      - "8000:8000"
+    volumes:
+      - blockchain_data:/data
+    depends_on:
+      - mosquitto
+
+volumes:
+  blockchain_data:
